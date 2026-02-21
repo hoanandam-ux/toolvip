@@ -1,0 +1,45 @@
+<script>
+async function kichHoat(){
+  const key = document.getElementById("key").value.trim();
+
+  const res = await fetch("/api/activate",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({key})
+  });
+
+  const data = await res.json();
+  if(!data.success){
+    alert("❌ Key sai!");
+    return;
+  }
+
+  localStorage.setItem("vip_expire", data.expire);
+  alert("🎉 Kích hoạt VIP 7 ngày!");
+  location.reload();
+}
+
+async function phanTich(){
+  const hash = document.getElementById("md5").value.trim();
+
+  const res = await fetch("/api/analyze",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({hash})
+  });
+
+  const data = await res.json();
+  if(!data.success){
+    document.getElementById("ketqua").innerText = data.message;
+    return;
+  }
+
+  const d = data.data;
+  document.getElementById("ketqua").innerHTML = `
+    🔐 MD5: <b>${d.hash}</b><br>
+    📊 HEX cuối: <b>${d.lastBytes}</b><br>
+    🔢 Decimal: <b>${d.decimalValue}</b><br>
+    🎯 Kết quả: <b>${d.result} (${d.group})</b>
+  `;
+}
+</script>
