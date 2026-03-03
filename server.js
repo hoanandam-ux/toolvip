@@ -1,73 +1,66 @@
 const express = require("express");
+const crypto = require("crypto");
 const path = require("path");
 
 const app = express();
 app.use(express.json());
 app.use(express.static("public"));
 
-const PORT = process.env.PORT || 3000;
+const SECRET_KEY = process.env.SECRET_KEY || "VipSecure_2026_Render";
+const VALID_KEYS = ["VIP-2026-SECURE"]; // không đưa ra frontend
 
-/* ================= CONFIG ================= */
-const VIP_KEY = "s029019ca";
-const VIP_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 ngày
-
-/* ================= UTIL ================= */
-function isValidMD5(hash) {
-  return /^[a-f0-9]{32}$/i.test(hash);
-}
-
-function analyzeHash(hash) {
-  const lastBytes = hash.slice(-8);
-  const decimalValue = parseInt(lastBytes, 16);
-  const result = (decimalValue % 16) + 3; // 3-18
-  const group = result <= 10 ? "XỈU" : "TÀI";
-
-  return {
-    hash,
-    lastBytes,
-    decimalValue,
-    result,
-    group
-  };
-}
-
-/* ================= API KÍCH HOẠT KEY ================= */
+// ========================
+// Activate API
+// ========================
 app.post("/api/activate", (req, res) => {
-  const { key } = req.body;
+    const { key } = req.body;
 
-  if (key !== VIP_KEY) {
-    return res.json({
-      success: false,
-      message: "Key không hợp lệ"
-    });
-  }
+    if (!key) {
+        return res.json({ success: false });
+    }
 
-  return res.json({
-    success: true,
-    expire: Date.now() + VIP_DURATION
-  });
+    if (VALID_KEYS.includes(key)) {
+
+        const token = crypto
+            .createHash("sha256")
+            .update(key + SECRET_KEY)
+            .digest("hex");
+
+        return res.json({
+            success: true,
+            token
+        });
+    }
+
+    res.json({ success: false });
 });
 
-/* ================= API PHÂN TÍCH MD5 ================= */
+// ========================
+// Analyze API
+// ========================
 app.post("/api/analyze", (req, res) => {
-  const { hash } = req.body;
 
-  if (!isValidMD5(hash)) {
-    return res.json({
-      success: false,
-      message: "MD5 không hợp lệ (32 ký tự hex)"
-    });
-  }
+    const { hash, token } = req.body;
 
-  const data = analyzeHash(hash.toLowerCase());
-  res.json({ success: true, data });
+    if (!hash || !token) {
+        return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    const validToken = crypto
+        .createHash("sha256")
+        .update("VIP-2026-SECURE" + SECRET_KEY)
+        .digest("hex");
+
+    if (token !== validToken) {
+        return res.status(403).json({ error: "Invalid token" });
+    }
+
+    // Logic phân tích thật ở server
+    const lastChar = hash.slice(-1);
+    const result = parseInt(lastChar, 16) % 2 === 0 ? "XỈU" : "TÀI";
+
+    res.json({ result });
 });
 
-/* ================= HEALTH CHECK ================= */
-app.get("/api/status", (req, res) => {
-  res.json({ status: "Server đang hoạt động" });
-});
-
-app.listen(PORT, () => {
-  console.log("🚀 Server chạy tại cổng", PORT);
-});
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log("Server running"));
